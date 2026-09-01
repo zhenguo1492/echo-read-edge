@@ -20,7 +20,7 @@ flowchart LR
     Content --> Background
     Background --> Kokoro["Self-hosted Kokoro server"]
     Background --> Edge["Microsoft Edge Read Aloud (optional)"]
-    Background --> Dictionary["Public Dictionary API"]
+    Background --> Dictionary["Public dictionary sources"]
     Background --> Translation["Google Translate endpoint"]
     Background --> Settings["chrome.storage.local"]
     Background --> Database["IndexedDB"]
@@ -162,7 +162,7 @@ sequenceDiagram
     participant DB as IndexedDB
 
     C->>B: lookup(normalizedWord)
-    B->>B: Select source from the translation target
+    B->>B: Resolve readable sources from the translation target
     B->>DB: Read unexpired provider cache
     alt Cache miss or expired
         B->>D: GET the selected fixed endpoint
@@ -176,18 +176,26 @@ sequenceDiagram
     B-->>C: Success
 ```
 
-Two Dictionary Providers are wired behind one lookup message, and the reader's
-translation target chooses between them: a Chinese target uses Youdao's fixed
-public JSON endpoint for English-Chinese entries, and every other target uses
-the Free Dictionary endpoint for monolingual English entries. A bilingual source
-is only useful to a reader who reads its second language, so the setting that
-already states which language the reader reads also states which source can
-serve them. The response names the source that answered so the card can
-attribute it.
+Three Dictionary Providers are wired behind one lookup message, and the
+reader's translation target decides which of them can serve: a Chinese target
+uses Youdao's fixed public JSON endpoint for English-Chinese entries, and every
+other target uses the monolingual English sources, Free Dictionary first and
+Wiktionary behind it. A bilingual source is only useful to a reader who reads
+its second language, so the setting that already states which language the
+reader reads also states which sources can serve them. The response names the
+source that answered so the card can attribute it.
 
-Both Providers share one IndexedDB cache. Each cache key carries the provider
+A router walks that per-reader list until one source answers. Each attempt gets
+its own six-second budget rather than sharing one, so a source that hangs
+cannot spend the whole lookup. A source that fails for any reason other than
+not holding the word is passed over for five minutes, which keeps a multi-day
+outage — the community API behind Free Dictionary has them — from costing every
+later lookup that same wait. A source that simply has no entry for the word is
+not penalized, and the walk continues to the next source the reader can read.
+
+All Providers share one IndexedDB cache. Each cache key carries the provider
 name and its definition language, so switching targets reads that source's own
-entries instead of the other source's. UI and message contracts use only the
+entries instead of another source's. UI and message contracts use only the
 internal normalized dictionary type. The service worker keeps the legacy
 cache-first lookup behavior but stores responses locally in IndexedDB instead of
 the former backend database.
@@ -232,8 +240,10 @@ the former backend database.
 ### Dictionary API
 
 - HTTP 404: display a word-not-found state.
-- A source that has no entry for a word does not fall through to the other
-  source, because that would answer in a language the reader did not ask for.
+- A source that has no entry for a word falls through to the next source the
+  reader can read, and never to one that would answer in a language they did
+  not ask for. The word-not-found state is reported only once every readable
+  source has missed.
 - HTTP 429 or 5xx: display a temporary failure with a retry action.
 - Previously saved definitions remain available from IndexedDB while offline.
 
