@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EchoRead Edge",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Read web pages aloud and manage a local vocabulary list without an account or EchoRead backend.",
   "minimum_chrome_version": "116",
   "permissions": [

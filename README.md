@@ -234,6 +234,12 @@ loading the extension by hand.
 - Storage access is isolated behind repository interfaces.
 - SQLite is not part of the first implementation.
 
+## Privacy
+
+No account, no developer-operated server, no analytics. Everything the
+extension stores stays on your device. See [PRIVACY.md](PRIVACY.md) for what
+is stored and what is sent where.
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).

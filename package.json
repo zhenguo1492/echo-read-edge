@@ -1,6 +1,6 @@
 {
   "name": "echo-read-edge",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Chrome extension that reads web pages aloud with word-level highlighting and a local vocabulary list, with no account and no backend.",
   "license": "Apache-2.0",
   "author": "EchoRead Edge contributors",

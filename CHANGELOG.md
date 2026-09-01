@@ -11,6 +11,8 @@ releases.
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-09-01
+
 ### Added
 
 - Apache-2.0 license, contribution guide, security policy, and code of conduct.
