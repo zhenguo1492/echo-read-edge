@@ -1,0 +1,69 @@
+{
+  "manifest_version": 3,
+  "name": "EchoRead Edge",
+  "version": "2.1.0",
+  "description": "Read web pages aloud and manage a local vocabulary list without an account or EchoRead backend.",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "offscreen",
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://speech.platform.bing.com/*",
+    "wss://speech.platform.bing.com/*",
+    "https://dict.youdao.com/*",
+    "https://api.dictionaryapi.dev/*",
+    "https://translate.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open EchoRead Edge",
+    "default_popup": "popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["styles/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "edge_tts_handshake",
+        "enabled": true,
+        "path": "rules/edge-tts.json"
+      }
+    ]
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["highlight-worklet.js", "icons/*"],
+      "matches": ["<all_urls>"],
+      "use_dynamic_url": false
+    }
+  ]
+}

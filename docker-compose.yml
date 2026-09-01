@@ -1,0 +1,54 @@
+# Speech backend for the extension's default Kokoro engine.
+#
+#   scripts/start-kokoro.sh              # detect GPU support, start the match
+#   docker compose up -d                 # CPU, works everywhere
+#   docker compose --profile gpu up -d   # NVIDIA, needs the container toolkit
+#
+# Both services publish 8880, so exactly one may run at a time. The `.env` file
+# selects the CPU profile by default and a `--profile` flag on the command line
+# replaces it, which keeps a bare `up` from starting both. Switching between them
+# still needs `docker compose down` first, because `up` does not stop a service
+# that the newly selected profile no longer contains.
+
+name: echo-read-edge
+
+services:
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
+    container_name: echo-read-kokoro
+    profiles: ["cpu"]
+    ports:
+      - "127.0.0.1:8880:8880"
+    environment:
+      # The extension only calls the synthesis and voice endpoints.
+      ENABLE_WEB_PLAYER: "false"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8880/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
+
+  kokoro-gpu:
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
+    container_name: echo-read-kokoro-gpu
+    profiles: ["gpu"]
+    ports:
+      - "127.0.0.1:8880:8880"
+    environment:
+      ENABLE_WEB_PLAYER: "false"
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8880/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+      retries: 3

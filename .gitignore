@@ -1,0 +1,21 @@
+node_modules/
+.yarn/
+.pnp.*
+
+output/
+coverage/
+*.zip
+
+*.log
+.DS_Store
+
+# Machine-local overrides. `.env` itself is tracked; see the note inside it.
+.env.local
+.env.*.local
+
+# Agent tooling scratch space.
+.codex
+.claude
+.agents
+
+docs/private/

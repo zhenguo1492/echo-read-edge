@@ -1,0 +1,15 @@
+/**
+ * All migrated content UI must remain under this extension-owned root class so
+ * page styles do not leak into controls and extension styles do not affect pages.
+ */
+.echo-read-edge-root {
+  all: initial;
+  color-scheme: light dark;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+body[data-echo-read-modifier],
+body[data-echo-read-modifier] * {
+  cursor: pointer !important;
+}

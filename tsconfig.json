@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    // Chrome 116 supports the ES2022 language features used by the migrated extension.
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+
+    // Vite resolves browser modules and performs emission; TypeScript only validates them.
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+
+    // Preserve the legacy Preact JSX contract so retained components need minimal changes.
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+
+    // Keep strict migration checks without adding new rules that obscure legacy porting work.
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+
+    // Only Chrome globals are exposed to extension source files. Node globals remain build-only.
+    "types": ["chrome"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"]
+}
