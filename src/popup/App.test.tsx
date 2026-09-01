@@ -602,6 +602,12 @@ describe('popup Kokoro connection indicator', () => {
   })
 })
 
+/** The voice entries of one language, in the order the picker lists them. */
+function voiceRadios(groupLabel: string): HTMLInputElement[] {
+  const group = container.querySelector(`[role="radiogroup"][aria-label="${groupLabel}"]`)!
+  return Array.from(group.querySelectorAll<HTMLInputElement>('input[type="radio"]'))
+}
+
 describe('popup voice picker grouping', () => {
   it('keeps one entry per stored language and shows the saved regional voice', async () => {
     getTtsSettingsMock.mockResolvedValue({
@@ -628,11 +634,9 @@ describe('popup voice picker grouping', () => {
     )!
     expect(Array.from(languageSelect.options).map((option) => option.value)).toEqual(['en'])
 
-    const voiceSelect = container.querySelector<HTMLSelectElement>(
-      'select[aria-label="English voice"]'
-    )!
-    expect(voiceSelect.value).toBe('bf_emma')
-    expect(Array.from(voiceSelect.options).map((option) => option.textContent)).toEqual([
+    const voiceOptions = voiceRadios('English voice')
+    expect(voiceOptions.find((option) => option.checked)?.value).toBe('bf_emma')
+    expect(voiceOptions.map((option) => option.getAttribute('aria-label'))).toEqual([
       'Heart · Female (United States)',
       'Michael · Male (United States)',
       'Emma · Female (United Kingdom)'
@@ -665,12 +669,10 @@ describe('popup voice picker grouping', () => {
       languageSelect.dispatchEvent(new Event('change', { bubbles: true }))
     })
 
-    const voiceSelect = container.querySelector<HTMLSelectElement>(
-      'select[aria-label="Chinese voice"]'
-    )!
-    expect(Array.from(voiceSelect.options).map((option) => option.textContent)).toEqual([
-      'Xiaoxiao · Female',
-      'Yunxi · Male'
-    ])
+    expect(voiceRadios('Chinese voice').map((option) => option.getAttribute('aria-label')))
+      .toEqual([
+        'Xiaoxiao · Female',
+        'Yunxi · Male'
+      ])
   })
 })

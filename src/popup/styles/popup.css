@@ -307,16 +307,126 @@ select {
   border-color: #2563eb;
 }
 
-/* Keeps the preview trigger on the voice select's baseline. */
-.voice-row {
+.voice-field {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   gap: 8px;
 }
 
-.voice-row .select-setting {
-  flex: 1;
+/* Keeps the preview trigger on the voice list's heading row. */
+.voice-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.voice-field-label {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 550;
+}
+
+/*
+ * Two columns at the popup's width, three wherever the panel is wider. The list
+ * scrolls on its own so a language with many voices cannot push the sections
+ * below it out of reach.
+ */
+.voice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 6px;
+  max-height: 196px;
+  padding: 1px;
+  overflow-y: auto;
+  /* Reaching the end of the list must not carry the scroll into the popup. */
+  overscroll-behavior: contain;
+}
+
+.voice-option {
+  display: flex;
+  position: relative;
+  align-items: center;
+  gap: 7px;
   min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.voice-option:hover {
+  border-color: #bfdbfe;
+  background: #f1f5f9;
+}
+
+.voice-option.is-selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.voice-option:focus-within {
+  outline: 2px solid #93c5fd;
+  outline-offset: 1px;
+  border-color: #2563eb;
+}
+
+/*
+ * The radio keeps native arrow-key movement and the tab order, and covers its
+ * own card rather than shrinking to a point: the focus target is then exactly
+ * the box the reader clicked, so the browser has nothing to scroll to and the
+ * popup cannot be scrolled out from under itself.
+ */
+.voice-option-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  opacity: 0;
+  appearance: none;
+  cursor: pointer;
+}
+
+.voice-option-icon {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  color: #94a3b8;
+}
+
+.voice-option-icon.is-female {
+  color: #db2777;
+}
+
+.voice-option-icon.is-male {
+  color: #2563eb;
+}
+
+.voice-option-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.voice-option-name,
+.voice-option-detail {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.voice-option-name {
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.voice-option-detail {
+  color: #64748b;
+  font-size: 10px;
 }
 
 .preview-button {
@@ -499,12 +609,6 @@ select {
   gap: 6px;
 }
 
-.word-list-word {
-  color: #0f172a;
-  font-size: 14px;
-  font-weight: 650;
-}
-
 .word-list-row time {
   margin-left: auto;
   color: #94a3b8;
@@ -590,11 +694,43 @@ select {
 }
 
 .popup-dictionary {
+  display: flex;
   flex: 1;
   min-width: 0;
-  overflow-y: auto;
+  overflow: hidden;
   border-right: 1px solid #e2e8f0;
   background: #ffffff;
+}
+
+/*
+ * The entry itself is the shared panel the content script anchors to a page, so
+ * the popup only unpins it: no fixed placement, no card border, and a body that
+ * scrolls inside this column instead of carrying its own height.
+ */
+.popup-dictionary .echo-read-edge-panel {
+  position: static;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  width: auto;
+  max-height: none;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.popup-dictionary .echo-read-edge-panel-header,
+.popup-dictionary .echo-read-edge-dictionary-tabs {
+  flex: none;
+}
+
+.popup-dictionary .echo-read-edge-panel-body {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
 }
 
 .word-list-word {
@@ -623,251 +759,4 @@ select {
 .word-list-word:focus-visible {
   outline: 2px solid #93c5fd;
   outline-offset: 2px;
-}
-
-.dictionary-panel {
-  display: flex;
-  flex-direction: column;
-  padding: 16px 14px;
-}
-
-.dictionary-panel-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #eef2f7;
-}
-
-.dictionary-panel-title {
-  flex: 1;
-  min-width: 0;
-}
-
-.dictionary-panel-headword {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.dictionary-panel-headword strong {
-  color: #0f172a;
-  font-size: 18px;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-
-.dictionary-panel-stars {
-  color: #f59e0b;
-  font-size: 11px;
-}
-
-.dictionary-panel-badge {
-  padding: 1px 6px;
-  border-radius: 999px;
-  color: #475569;
-  background: #e2e8f0;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.dictionary-panel-lemma {
-  padding: 1px 6px;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  color: #2563eb;
-  background: #f8fafc;
-  font-size: 10px;
-  cursor: pointer;
-}
-
-.dictionary-panel-phonetics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 4px;
-  color: #64748b;
-  font-size: 11px;
-}
-
-.dictionary-panel-phonetics button {
-  margin-right: 3px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-size: 12px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.dictionary-panel-title small {
-  display: block;
-  margin-top: 4px;
-  color: #94a3b8;
-  font-size: 10px;
-}
-
-.dictionary-panel-close {
-  flex: none;
-  padding: 0 5px;
-  border: 0;
-  border-radius: 5px;
-  color: #94a3b8;
-  background: transparent;
-  font-size: 17px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.dictionary-panel-close:hover {
-  color: #1e293b;
-  background: #e2e8f0;
-}
-
-.dictionary-panel-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 10px 0;
-}
-
-.dictionary-panel-tabs button {
-  padding: 4px 9px;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  color: #475569;
-  background: #f8fafc;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.dictionary-panel-tabs button.is-active {
-  color: #1d4ed8;
-  border-color: #bfdbfe;
-  background: #eff6ff;
-}
-
-.dictionary-panel-tabs button:focus-visible,
-.dictionary-panel-close:focus-visible,
-.dictionary-panel-retry:focus-visible {
-  outline: 2px solid #93c5fd;
-  outline-offset: 1px;
-}
-
-.dictionary-panel-body {
-  color: #334155;
-  font-size: 12px;
-  line-height: 1.55;
-}
-
-.dictionary-panel-row {
-  display: flex;
-  gap: 6px;
-  padding: 5px 0;
-  border-top: 1px solid #f1f5f9;
-}
-
-.dictionary-panel-row:first-child {
-  border-top: 0;
-}
-
-.dictionary-panel-row i,
-.dictionary-panel-pos i {
-  flex: none;
-  color: #2563eb;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 600;
-}
-
-.dictionary-panel-group {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid #f1f5f9;
-}
-
-.dictionary-panel-group h3 {
-  margin: 0 0 4px;
-  color: #475569;
-  font-size: 11px;
-  font-weight: 650;
-}
-
-.dictionary-panel-group p {
-  margin: 0 0 4px;
-}
-
-.dictionary-panel-pos {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.dictionary-panel-pos small {
-  color: #94a3b8;
-  font-size: 10px;
-}
-
-.dictionary-panel-example {
-  margin-top: 6px;
-  padding-left: 8px;
-  border-left: 2px solid #e2e8f0;
-}
-
-.dictionary-panel-example p {
-  margin: 0;
-  color: #334155;
-}
-
-.dictionary-panel-example small {
-  color: #64748b;
-  font-size: 11px;
-}
-
-.dictionary-panel-synonyms {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.dictionary-panel-synonyms span {
-  padding: 1px 7px;
-  border-radius: 999px;
-  color: #475569;
-  background: #f1f5f9;
-  font-size: 11px;
-}
-
-.dictionary-panel-muted {
-  margin: 0;
-  color: #94a3b8;
-  font-size: 11px;
-}
-
-.dictionary-panel-error {
-  color: #b91c1c;
-  font-size: 11px;
-}
-
-.dictionary-panel-error p {
-  margin: 0 0 6px;
-}
-
-.dictionary-panel-retry {
-  padding: 4px 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 7px;
-  color: #1e293b;
-  background: #ffffff;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.dictionary-panel-source {
-  margin: 12px 0 0;
-  color: #94a3b8;
-  font-size: 10px;
 }

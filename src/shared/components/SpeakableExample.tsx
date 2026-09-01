@@ -3,14 +3,14 @@ import { useEffect, useMemo, useRef } from 'preact/hooks'
 
 import {
   exampleSpeechState,
+  preemptCompetingAudio,
   stopExampleSpeech,
   toggleExampleSpeech
-} from '@/content/modules/example-speech-controller'
+} from '@/shared/example-speech-controller'
 import {
   mapExampleBoundariesToWords,
   splitExampleText
-} from '@/content/modules/example-word-mapper'
-import { disposeReading } from '@/content/modules/tts-player'
+} from '@/shared/example-word-mapper'
 import { settingsRepository } from '@/storage'
 
 let nextExampleId = 0
@@ -46,9 +46,9 @@ export function SpeakableExample({
   }, [sourceId])
 
   const toggle = async (): Promise<void> => {
-    // The legacy audio controller allowed only one speech source. Dispose page
+    // The legacy audio controller allowed only one speech source. Release the
     // reading before a new example claims the single offscreen audio session.
-    if (!isActive) await disposeReading()
+    if (!isActive) await preemptCompetingAudio()
     const settings = await settingsRepository.getTtsSettings()
     // Dictionary examples are English sentences, so they keep the English voice
     // even while the reader is set to read pages in another language.

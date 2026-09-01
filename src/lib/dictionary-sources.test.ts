@@ -4,7 +4,8 @@ import {
   DICTIONARY_SOURCES,
   dictionarySourceLabel,
   isDictionarySourceId,
-  resolveDictionarySourceId
+  resolveDictionarySourceId,
+  resolveDictionarySourceIds
 } from './dictionary-sources'
 
 describe('dictionary sources', () => {
@@ -26,10 +27,21 @@ describe('dictionary sources', () => {
 
   it('exposes one label and definition language per source', () => {
     expect(DICTIONARY_SOURCES.map((source) => source.id))
-      .toEqual(['youdao', 'free-dictionary'])
+      .toEqual(['youdao', 'free-dictionary', 'wiktionary'])
     expect(dictionarySourceLabel('free-dictionary')).toBe('Free Dictionary')
     expect(dictionarySourceLabel('unknown')).toBe('unknown')
     expect(isDictionarySourceId('youdao')).toBe(true)
     expect(isDictionarySourceId('webster')).toBe(false)
+    expect(dictionarySourceLabel('wiktionary')).toBe('Wiktionary')
+  })
+
+  it('orders every source of the readable language so a dead one has a successor', () => {
+    expect(resolveDictionarySourceIds('en')).toEqual(['free-dictionary', 'wiktionary'])
+    expect(resolveDictionarySourceIds('ja')).toEqual(['free-dictionary', 'wiktionary'])
+  })
+
+  it('never offers a Chinese reader a source in a language they did not ask for', () => {
+    expect(resolveDictionarySourceIds('zh-CN')).toEqual(['youdao'])
+    expect(resolveDictionarySourceIds(undefined)).toEqual(['youdao'])
   })
 })

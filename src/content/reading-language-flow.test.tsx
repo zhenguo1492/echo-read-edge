@@ -38,9 +38,10 @@ vi.mock('@/content/modules/highlight-overlay', () => ({
   destroyHighlightOverlay: () => undefined
 }))
 
-vi.mock('@/content/modules/example-speech-controller', () => ({
+vi.mock('@/shared/example-speech-controller', () => ({
   initializeExampleSpeech: vi.fn(),
-  destroyExampleSpeech: vi.fn()
+  destroyExampleSpeech: vi.fn(),
+  setExampleSpeechPreemption: vi.fn()
 }))
 
 const storedSettings: Record<string, unknown> = {}

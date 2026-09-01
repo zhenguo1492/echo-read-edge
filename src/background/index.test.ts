@@ -37,42 +37,59 @@ function dispatch(message: unknown, tabId?: number): Promise<TtsCommandResponse>
   })
 }
 
-describe('background playback routing', () => {
-  beforeEach(() => {
-    sendMessageMock.mockReset()
-    vi.stubGlobal('chrome', {
-      runtime: {
-        id: EXTENSION_ID,
-        sendMessage: sendMessageMock,
-        getURL: (path: string) => `chrome-extension://${EXTENSION_ID}${path}`,
-        getManifest: () => ({ version: '0.0.0-test' }),
-        onMessage: {
-          addListener: vi.fn((listener: RuntimeListener) => {
-            runtimeListener = listener
-          })
-        }
-      },
-      storage: {
-        local: { get: vi.fn(async () => ({})), set: vi.fn(async () => undefined) },
-        sync: { get: vi.fn(async () => ({})), set: vi.fn(async () => undefined) }
-      },
-      tabs: {
-        sendMessage: vi.fn(),
-        onRemoved: { addListener: vi.fn() },
-        onUpdated: { addListener: vi.fn() }
-      },
-      offscreen: {
-        Reason: { AUDIO_PLAYBACK: 'AUDIO_PLAYBACK' },
-        createDocument: vi.fn(),
-        hasDocument: vi.fn(async () => true)
+beforeEach(() => {
+  sendMessageMock.mockReset()
+  vi.stubGlobal('chrome', {
+    runtime: {
+      id: EXTENSION_ID,
+      sendMessage: sendMessageMock,
+      getURL: (path: string) => `chrome-extension://${EXTENSION_ID}${path}`,
+      getManifest: () => ({ version: '0.0.0-test' }),
+      onMessage: {
+        addListener: vi.fn((listener: RuntimeListener) => {
+          runtimeListener = listener
+        })
       }
-    })
+    },
+    storage: {
+      local: { get: vi.fn(async () => ({})), set: vi.fn(async () => undefined) },
+      sync: { get: vi.fn(async () => ({})), set: vi.fn(async () => undefined) }
+    },
+    tabs: {
+      sendMessage: vi.fn(),
+      onRemoved: { addListener: vi.fn() },
+      onUpdated: { addListener: vi.fn() }
+    },
+    offscreen: {
+      Reason: { AUDIO_PLAYBACK: 'AUDIO_PLAYBACK' },
+      createDocument: vi.fn(),
+      hasDocument: vi.fn(async () => true)
+    }
   })
+})
 
-  afterEach(() => {
-    vi.unstubAllGlobals()
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+describe('background dictionary routing', () => {
+  it('answers a lookup no source ever completes instead of holding the port', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.stubGlobal('fetch', vi.fn(() => new Promise(() => undefined)))
+      await restartServiceWorker()
+
+      const response = dispatch({ action: 'dictionary:lookup', word: 'read' })
+      await vi.advanceTimersByTimeAsync(30_000)
+
+      await expect(response).resolves.toMatchObject({ ok: false, code: 'unavailable' })
+    } finally {
+      vi.useRealTimers()
+    }
   })
+})
 
+describe('background playback routing', () => {
   it('forwards teardown for a session the restarted worker no longer records', async () => {
     sendMessageMock.mockResolvedValueOnce({
       ok: true,

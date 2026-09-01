@@ -505,66 +505,90 @@ export function SettingsPanel(): JSX.Element {
               </select>
             </label>
 
-            <div class="voice-row">
-              <label class="select-setting">
-                <span>Voice</span>
-                <select
-                  aria-label={`${selectedLanguage.label} voice`}
-                  value={selectedVoiceId}
-                  disabled={isPreviewStarting}
-                  onChange={(event) => void changeVoice(
-                    selectedLanguage.languageCode,
-                    (event.currentTarget as HTMLSelectElement).value
-                  )}
-                >
-                  {selectedLanguage.voices.map((voice) => (
-                    <option key={voice.id} value={voice.id}>
-                      {voice.name}
-                      {voice.gender === 'Unknown' ? '' : ` · ${voice.gender}`}
-                      {voice.regionLabel ? ` (${voice.regionLabel})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <div class="voice-field">
+              <div class="voice-field-header">
+                <span class="voice-field-label">Voice</span>
 
-              {/* Icon-only trigger: the label text stays for screen readers and tests. */}
-              <button
-                class="preview-button"
-                type="button"
-                title={previewText}
-                disabled={isPreviewStarting}
-                onClick={() => void togglePreview()}
+                {/* Icon-only trigger: the label text stays for screen readers and tests. */}
+                <button
+                  class="preview-button"
+                  type="button"
+                  title={previewText}
+                  disabled={isPreviewStarting}
+                  onClick={() => void togglePreview()}
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                    <path d="M8.4 2.3 4.9 5.2H2.6a.9.9 0 0 0-.9.9v3.8c0 .5.4.9.9.9h2.3l3.5 2.9a.6.6 0 0 0 1-.5V2.8a.6.6 0 0 0-1-.5z" fill="currentColor" />
+                    {previewPlaybackId
+                      ? (
+                        <path
+                          d="m11.4 6.1 3 3.8M14.4 6.1l-3 3.8"
+                          stroke="currentColor"
+                          stroke-width="1.3"
+                          stroke-linecap="round"
+                          fill="none"
+                        />
+                      )
+                      : (
+                        <path
+                          d="M11.2 5.9a3 3 0 0 1 0 4.2M13.3 4.2a5.6 5.6 0 0 1 0 7.6"
+                          stroke="currentColor"
+                          stroke-width="1.3"
+                          stroke-linecap="round"
+                          fill="none"
+                        />
+                      )}
+                  </svg>
+                  <span class="visually-hidden">
+                    {isPreviewStarting
+                      ? 'Starting preview...'
+                      : previewPlaybackId
+                        ? 'Stop preview'
+                        : 'Preview voice'}
+                  </span>
+                </button>
+              </div>
+
+              {/*
+                * Radios rather than a dropdown: the whole catalog of a language
+                * stays visible, and each entry can carry its gender mark. The
+                * hidden input keeps native arrow-key movement inside the group.
+                */}
+              <div
+                class="voice-grid"
+                role="radiogroup"
+                aria-label={`${selectedLanguage.label} voice`}
               >
-                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                  <path d="M8.4 2.3 4.9 5.2H2.6a.9.9 0 0 0-.9.9v3.8c0 .5.4.9.9.9h2.3l3.5 2.9a.6.6 0 0 0 1-.5V2.8a.6.6 0 0 0-1-.5z" fill="currentColor" />
-                  {previewPlaybackId
-                    ? (
-                      <path
-                        d="m11.4 6.1 3 3.8M14.4 6.1l-3 3.8"
-                        stroke="currentColor"
-                        stroke-width="1.3"
-                        stroke-linecap="round"
-                        fill="none"
-                      />
-                    )
-                    : (
-                      <path
-                        d="M11.2 5.9a3 3 0 0 1 0 4.2M13.3 4.2a5.6 5.6 0 0 1 0 7.6"
-                        stroke="currentColor"
-                        stroke-width="1.3"
-                        stroke-linecap="round"
-                        fill="none"
-                      />
-                    )}
-                </svg>
-                <span class="visually-hidden">
-                  {isPreviewStarting
-                    ? 'Starting preview...'
-                    : previewPlaybackId
-                      ? 'Stop preview'
-                      : 'Preview voice'}
-                </span>
-              </button>
+                {selectedLanguage.voices.map((voice) => (
+                  <label
+                    key={voice.id}
+                    class={voice.id === selectedVoiceId
+                      ? 'voice-option is-selected'
+                      : 'voice-option'}
+                  >
+                    <input
+                      class="voice-option-input"
+                      type="radio"
+                      name="reading-voice"
+                      value={voice.id}
+                      aria-label={describeVoice(voice)}
+                      checked={voice.id === selectedVoiceId}
+                      disabled={isPreviewStarting}
+                      onChange={() => void changeVoice(
+                        selectedLanguage.languageCode,
+                        voice.id
+                      )}
+                    />
+                    <GenderIcon gender={voice.gender} />
+                    <span class="voice-option-text">
+                      <span class="voice-option-name">{voice.name}</span>
+                      {voice.regionLabel
+                        ? <span class="voice-option-detail">{voice.regionLabel}</span>
+                        : null}
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -624,6 +648,55 @@ export function SettingsPanel(): JSX.Element {
       <p class="save-status" aria-live="polite">{status}</p>
     </>
   )
+}
+
+/**
+ * The gender mark of one voice entry. It repeats what the radio's label already
+ * says, so it is hidden from assistive technology rather than announced twice.
+ */
+function GenderIcon({ gender }: { gender: VoiceRecord['gender'] }): JSX.Element {
+  const className = gender === 'Female'
+    ? 'voice-option-icon is-female'
+    : gender === 'Male'
+      ? 'voice-option-icon is-male'
+      : 'voice-option-icon'
+
+  return (
+    <svg
+      class={className}
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      focusable="false"
+      stroke="currentColor"
+      stroke-width="1.4"
+      stroke-linecap="round"
+      fill="none"
+    >
+      {gender === 'Female' ? (
+        <>
+          <circle cx="8" cy="6.2" r="3.4" />
+          <path d="M8 9.6v4.6M5.9 12.4h4.2" />
+        </>
+      ) : gender === 'Male' ? (
+        <>
+          <circle cx="6.6" cy="9.4" r="3.4" />
+          <path d="M9.3 6.7 13.2 2.8M9.9 2.8h3.3v3.3" />
+        </>
+      ) : (
+        <>
+          <circle cx="8" cy="5.4" r="2.6" />
+          <path d="M3.6 13.6a4.4 4.4 0 0 1 8.8 0" />
+        </>
+      )}
+    </svg>
+  )
+}
+
+/** The spoken-out description of a voice, used as the radio's label. */
+function describeVoice(voice: VoiceOption): string {
+  const gender = voice.gender === 'Unknown' ? '' : ` \u00b7 ${voice.gender}`
+  const region = voice.regionLabel ? ` (${voice.regionLabel})` : ''
+  return `${voice.name}${gender}${region}`
 }
 
 /** What the address field's icon currently reports, and why. */

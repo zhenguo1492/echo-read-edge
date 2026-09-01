@@ -1,5 +1,5 @@
 import type { WordTimestamp } from '@/types'
-import { findWordMatch } from './word-range-mapper'
+import { findWordMatch } from '@/lib/word-match'
 
 export interface ExampleTextPart {
   text: string

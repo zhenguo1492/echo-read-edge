@@ -1,8 +1,10 @@
+import { englishLemmaCandidates } from '@/lib/english-lemmas'
 import type { DetailedDictionaryEntry } from '@/types'
 import {
   createDictionaryCacheRecord,
   type DictionaryCacheRepository
 } from '@/storage/dictionary-cache-repository'
+import { DictionaryProviderError } from './dictionary-provider'
 const CACHE_LIFETIME_MS = 365 * 24 * 60 * 60 * 1000
 
 interface CacheableDictionaryProvider {
@@ -40,7 +42,15 @@ export class CachedDictionaryService {
     normalizedWord: string,
     signal: AbortSignal
   ): Promise<DetailedDictionaryEntry> {
-    const entry = await this.lookupBase(normalizedWord, signal)
+    let entry: DetailedDictionaryEntry
+    try {
+      entry = await this.lookupBase(normalizedWord, signal)
+    } catch (error) {
+      if (!isNotFound(error)) throw error
+      const derived = await this.lookupDerivedLemma(normalizedWord, signal)
+      if (!derived) throw error
+      return derived
+    }
     if (!entry.lemma || entry.lemma === normalizedWord) return entry
 
     const lemmaEntry = await this.lookupBase(entry.lemma, signal)
@@ -51,6 +61,32 @@ export class CachedDictionaryService {
       isLemmatized: true,
       inflectedData: entry
     }
+  }
+
+  /**
+   * Rescues a miss on a source that only indexes headwords, such as the
+   * monolingual English one, which answers 404 for “billions” while it defines
+   * “billion”. Anything but another miss ends the walk so a broken network is
+   * reported as itself rather than as an unknown word.
+   */
+  private async lookupDerivedLemma(
+    normalizedWord: string,
+    signal: AbortSignal
+  ): Promise<DetailedDictionaryEntry | null> {
+    for (const candidate of englishLemmaCandidates(normalizedWord)) {
+      try {
+        const entry = await this.lookupBase(candidate, signal)
+        return {
+          ...entry,
+          originalWord: normalizedWord,
+          lemma: candidate,
+          isLemmatized: true
+        }
+      } catch (error) {
+        if (!isNotFound(error)) throw error
+      }
+    }
+    return null
   }
 
   private async lookupBase(
@@ -86,4 +122,8 @@ export class CachedDictionaryService {
     }
     return entry
   }
+}
+
+function isNotFound(error: unknown): boolean {
+  return error instanceof DictionaryProviderError && error.code === 'not-found'
 }

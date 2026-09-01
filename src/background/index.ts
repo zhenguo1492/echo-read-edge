@@ -28,16 +28,18 @@ import {
   CachedEdgeVoiceCatalog,
   CachedDictionaryService,
   DictionaryProviderError,
+  DictionaryRouter,
   EdgeVoiceListProvider,
   KokoroHealthProbe,
   KokoroVoiceCatalog,
   FreeDictionaryProvider,
   GoogleTranslationProvider,
   ThrottledTranslationProvider,
+  WiktionaryDictionaryProvider,
   YoudaoDictionaryProvider
 } from '@/providers'
 import {
-  resolveDictionarySourceId,
+  resolveDictionarySourceIds,
   type DictionarySourceId
 } from '@/lib/dictionary-sources'
 import {
@@ -48,6 +50,8 @@ import {
 } from '@/storage'
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html'
+/** Covers a full source walk while still answering the card that is waiting. */
+const DICTIONARY_DEADLINE_MS = 20_000
 const TRANSLATION_BUDGET_MS = 90_000
 /**
  * Every tab's translations funnel through this one instance, so the shared
@@ -60,17 +64,22 @@ const translationProvider = new ThrottledTranslationProvider(
 )
 /**
  * A bilingual source only helps a reader who reads its second language, so the
- * reader's translation target chooses the source. Both services share one cache
- * repository because each provider namespaces its own records.
+ * reader's translation target chooses which sources a lookup may walk. Every
+ * service shares one cache repository because each provider namespaces its own
+ * records.
  */
 const dictionaryCache = new IndexedDbDictionaryCacheRepository()
-const dictionaryServices: Record<DictionarySourceId, CachedDictionaryService> = {
+const dictionaryRouter = new DictionaryRouter({
   youdao: new CachedDictionaryService(new YoudaoDictionaryProvider(), dictionaryCache),
   'free-dictionary': new CachedDictionaryService(
     new FreeDictionaryProvider(),
     dictionaryCache
+  ),
+  wiktionary: new CachedDictionaryService(
+    new WiktionaryDictionaryProvider(),
+    dictionaryCache
   )
-}
+})
 const edgeVoiceCatalog = new CachedEdgeVoiceCatalog(
   new EdgeVoiceListProvider(),
   new ChromeLocalEdgeVoiceCatalogRepository()
@@ -128,7 +137,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (isDictionaryLookupRequest(message)) {
-    void lookupDictionary(message).then(sendResponse)
+    void lookupDictionary(message)
+      .catch(() => ({
+        ok: false as const,
+        code: 'unavailable' as const,
+        error: 'The dictionary is currently unavailable.'
+      }))
+      .then(sendResponse)
     return true
   }
 
@@ -189,15 +204,23 @@ async function translateText(message: TranslateRequest): Promise<TranslateRespon
   }
 }
 
-/** Looks up one validated English word through the fixed public Provider. */
+/**
+ * Looks up one validated English word, walking every source the reader can
+ * read so a single dead public API does not take the dictionary down with it.
+ * The answering source travels with the entry because the card names it.
+ *
+ * The walk is capped as a whole because a caller that is told nothing shows a
+ * spinner forever: storage, not just the network, can stall a lookup.
+ */
 async function lookupDictionary(
   message: DictionaryLookupRequest
 ): Promise<DictionaryLookupResponse> {
-  const source = await resolveActiveDictionarySource()
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 10_000)
   try {
-    const entry = await dictionaryServices[source].lookup(message.word, controller.signal)
+    const { entry, source } = await withDeadline(
+      resolveActiveDictionarySources()
+        .then((sources) => dictionaryRouter.lookup(message.word, sources)),
+      DICTIONARY_DEADLINE_MS
+    )
     return { ok: true, entry, source }
   } catch (error) {
     if (error instanceof DictionaryProviderError) {
@@ -208,18 +231,31 @@ async function lookupDictionary(
       code: 'unavailable',
       error: 'The dictionary is currently unavailable.'
     }
-  } finally {
-    clearTimeout(timeout)
   }
 }
 
-/** An unreadable setting must not disable lookup, so the default source stands. */
-async function resolveActiveDictionarySource(): Promise<DictionarySourceId> {
+/** Rejects rather than letting a stalled dependency hold the response channel. */
+function withDeadline<T>(work: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new DictionaryProviderError(
+        'unavailable',
+        'The dictionary did not answer in time.'
+      )),
+      timeoutMs
+    )
+  })
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer))
+}
+
+/** An unreadable setting must not disable lookup, so the default sources stand. */
+async function resolveActiveDictionarySources(): Promise<DictionarySourceId[]> {
   try {
     const settings = await settingsRepository.getTranslationSettings()
-    return resolveDictionarySourceId(settings.targetLanguage)
+    return resolveDictionarySourceIds(settings.targetLanguage)
   } catch {
-    return resolveDictionarySourceId(undefined)
+    return resolveDictionarySourceIds(undefined)
   }
 }
 

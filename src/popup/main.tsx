@@ -1,6 +1,10 @@
 import { render } from 'preact'
 
 import { App } from './App'
+
+// The dictionary entry is the content script's panel, so the popup loads the
+// same stylesheet that document injects into its shadow root.
+import '@/shared/styles/panel.css'
 import './styles/popup.css'
 
 const root = document.getElementById('app')

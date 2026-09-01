@@ -6,6 +6,7 @@ import type {
   DictionaryCacheRepository
 } from '@/storage'
 import { CachedDictionaryService } from './cached-dictionary-service'
+import { DictionaryProviderError } from './dictionary-provider'
 
 class MemoryDictionaryCache implements DictionaryCacheRepository {
   readonly records = new Map<string, DictionaryCacheRecord>()
@@ -105,6 +106,63 @@ describe('CachedDictionaryService', () => {
       isLemmatized: true,
       inflectedData: { word: 'reading' }
     })
+    expect(provider.lookup).toHaveBeenCalledTimes(2)
+  })
+
+  it('falls back to a derived lemma when the source has no inflected entry', async () => {
+    const cache = new MemoryDictionaryCache()
+    const provider = {
+      name: 'free-dictionary',
+      definitionLanguage: 'en',
+      lookup: vi.fn(async (word: string) => {
+        if (word !== 'billion') {
+          throw new DictionaryProviderError('not-found', `No entry was found for “${word}”.`)
+        }
+        return createEntry('billion')
+      })
+    }
+    const service = new CachedDictionaryService(provider, cache)
+
+    await expect(service.lookup('billions', new AbortController().signal)).resolves.toMatchObject({
+      word: 'billion',
+      originalWord: 'billions',
+      lemma: 'billion',
+      isLemmatized: true
+    })
+    expect(provider.lookup).toHaveBeenCalledWith('billions', expect.anything())
+  })
+
+  it('reports the original miss when no derived lemma is defined either', async () => {
+    const cache = new MemoryDictionaryCache()
+    const provider = {
+      name: 'free-dictionary',
+      definitionLanguage: 'en',
+      lookup: vi.fn(async (word: string) => {
+        throw new DictionaryProviderError('not-found', `No entry was found for “${word}”.`)
+      })
+    }
+    const service = new CachedDictionaryService(provider, cache)
+
+    await expect(service.lookup('zzzzs', new AbortController().signal))
+      .rejects.toMatchObject({ code: 'not-found', message: 'No entry was found for “zzzzs”.' })
+  })
+
+  it('stops the fallback walk when the source itself is unavailable', async () => {
+    const cache = new MemoryDictionaryCache()
+    const provider = {
+      name: 'free-dictionary',
+      definitionLanguage: 'en',
+      lookup: vi.fn(async (word: string) => {
+        if (word === 'billions') {
+          throw new DictionaryProviderError('not-found', 'No entry was found.')
+        }
+        throw new DictionaryProviderError('unavailable', 'The dictionary is currently unavailable.')
+      })
+    }
+    const service = new CachedDictionaryService(provider, cache)
+
+    await expect(service.lookup('billions', new AbortController().signal))
+      .rejects.toMatchObject({ code: 'unavailable' })
     expect(provider.lookup).toHaveBeenCalledTimes(2)
   })
 })

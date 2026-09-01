@@ -79,7 +79,7 @@ describe('WordDictionaryPanel', () => {
     })
 
     expect(sendMessage).toHaveBeenCalledWith({ action: 'dictionary:lookup', word: 'read' })
-    const tabs = [...container.querySelectorAll('.dictionary-panel-tabs button')].map(
+    const tabs = [...container.querySelectorAll('.echo-read-edge-dictionary-tabs button')].map(
       (button) => button.textContent
     )
     expect(tabs).toEqual(['Meanings', 'Examples', 'Phrases'])
@@ -95,12 +95,15 @@ describe('WordDictionaryPanel', () => {
     })
 
     const examplesTab = [
-      ...container.querySelectorAll<HTMLButtonElement>('.dictionary-panel-tabs button')
+      ...container.querySelectorAll<HTMLButtonElement>('.echo-read-edge-dictionary-tabs button')
     ].find((button) => button.textContent === 'Examples')
     act(() => examplesTab?.click())
 
     expect(container.textContent).toContain('I read every day.')
     expect(container.textContent).toContain('我每天阅读。')
+    // The examples are the in-page component, so each one keeps its own player.
+    expect(container.querySelector('button[aria-label="Read example: I read every day."]'))
+      .not.toBeNull()
   })
 
   it('speaks the headword with a voice from the selected engine', async () => {
@@ -144,11 +147,76 @@ describe('WordDictionaryPanel', () => {
 
     sendMessage.mockImplementation(answerWith(createEntry()))
     await act(async () => {
-      container.querySelector<HTMLButtonElement>('.dictionary-panel-retry')?.click()
+      const retry = [...container.querySelectorAll<HTMLButtonElement>(
+        '.echo-read-edge-error button'
+      )].find((button) => button.textContent === 'Retry')
+      retry?.click()
     })
     await vi.waitFor(() => {
       expect(container.textContent).toContain('To interpret written text.')
     })
+  })
+
+  it('shows the resolved lemma as a trail when the source has no inflected entry', async () => {
+    sendMessage.mockImplementation(answerWith(createEntry({
+      word: 'billion',
+      originalWord: 'billions',
+      lemma: 'billion',
+      isLemmatized: true
+    })))
+
+    await act(async () => {
+      render(<WordDictionaryPanel word="billions" onClose={vi.fn()} />, container)
+    })
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('To interpret written text.')
+    })
+
+    const trail = container.querySelector('.echo-read-edge-lemma')
+    expect(trail?.textContent).toBe('billions → billion')
+    // Without an inflected entry behind it the trail has nothing to toggle to.
+    expect(container.querySelector('button.echo-read-edge-lemma')).toBeNull()
+  })
+
+  it('stops waiting when the service worker never answers', async () => {
+    vi.useFakeTimers()
+    try {
+      sendMessage.mockImplementation(async (message: { action: string }) => {
+        if (message.action === 'dictionary:lookup') return new Promise(() => undefined)
+        return { ok: true, source: 'network', voices: EDGE_VOICES }
+      })
+
+      await act(async () => {
+        render(<WordDictionaryPanel word="read" onClose={vi.fn()} />, container)
+      })
+      expect(container.textContent).toContain('Looking up word…')
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20_000)
+      })
+
+      expect(container.textContent).not.toContain('Looking up word…')
+      expect(container.textContent).toContain('The dictionary did not answer.')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('tells the reader to reload a page the extension update orphaned', async () => {
+    sendMessage.mockImplementation((message: { action: string }) => {
+      if (message.action === 'dictionary:lookup') {
+        throw new Error('Extension context invalidated.')
+      }
+      return Promise.resolve({ ok: true, source: 'network', voices: EDGE_VOICES })
+    })
+
+    await act(async () => {
+      render(<WordDictionaryPanel word="read" onClose={vi.fn()} />, container)
+    })
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('The extension was updated. Reload the page')
+    })
+    expect(container.textContent).not.toContain('Looking up word…')
   })
 
   it('closes on the close control', async () => {

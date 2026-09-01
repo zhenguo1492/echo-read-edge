@@ -17,6 +17,7 @@
     "wss://speech.platform.bing.com/*",
     "https://dict.youdao.com/*",
     "https://api.dictionaryapi.dev/*",
+    "https://en.wiktionary.org/*",
     "https://translate.googleapis.com/*"
   ],
   "background": {

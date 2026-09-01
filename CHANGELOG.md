@@ -16,6 +16,20 @@ releases.
 - Apache-2.0 license, contribution guide, security policy, and code of conduct.
 - GitHub Actions CI running lint, typecheck, tests, and a build on every push
   and pull request.
+- Wiktionary as a second monolingual English dictionary source, tried when the
+  Free Dictionary API cannot answer. Each source now gets its own request
+  budget, and one that fails is passed over for five minutes instead of
+  delaying every later lookup.
+
+### Fixed
+
+- A dictionary card no longer sits at “Looking up word…” forever. The card gives
+  up after 20 seconds, the service worker answers every lookup within its own
+  deadline instead of holding the message channel open, and a page left behind
+  by an extension reload now says to reload the page rather than spinning.
+- An inflected word such as “billions” no longer fails against a dictionary
+  source that indexes base forms only: a lookup that misses now walks the
+  candidate base forms of the word before reporting it as unknown.
 
 ## [2.1.0] — starting point
 

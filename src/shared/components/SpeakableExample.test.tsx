@@ -2,7 +2,7 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { destroyExampleSpeech } from '@/content/modules/example-speech-controller'
+import { destroyExampleSpeech } from '@/shared/example-speech-controller'
 import { SpeakableExample } from './SpeakableExample'
 
 let container: HTMLDivElement

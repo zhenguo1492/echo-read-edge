@@ -12,11 +12,17 @@
 const HEADING_PATTERN = /^(#{1,6})\s+(.+)$/
 const FENCE_PATTERN = /^```(\w*)\s*$/
 const BULLET_PATTERN = /^[-*]\s+(.+)$/
-const NUMBERED_PATTERN = /^\d+\.\s+(.+)$/
+const NUMBERED_PATTERN = /^(\d+)\.\s+(.+)$/
 const CONTINUATION_PATTERN = /^\s+\S/
 const TABLE_ROW_PATTERN = /^\|.*\|\s*$/
 const TABLE_DIVIDER_PATTERN = /^\|[\s|:-]+\|\s*$/
 const ABSOLUTE_URL_PATTERN = /^https?:\/\//
+
+/**
+ * Marks where a rendered code span was lifted out of a line. It is a control
+ * character no document contains, so nothing else can be mistaken for one.
+ */
+const CODE_PLACEHOLDER = '\u0000'
 
 /** One rendered block plus the index of the first line after it. */
 interface BlockResult {
@@ -105,13 +111,16 @@ function readList(
 ): BlockResult {
   const itemPattern = tag === 'ul' ? BULLET_PATTERN : NUMBERED_PATTERN
   const items: string[] = []
+  let firstNumber = 1
   let index = start
 
   while (index < lines.length) {
     const itemMatch = itemPattern.exec(lines[index])
     if (itemMatch === null) break
 
-    const parts = [itemMatch[1]]
+    if (tag === 'ol' && items.length === 0) firstNumber = Number(itemMatch[1])
+
+    const parts = [itemMatch[tag === 'ol' ? 2 : 1]]
     index += 1
 
     while (index < lines.length && CONTINUATION_PATTERN.test(lines[index])) {
@@ -122,7 +131,13 @@ function readList(
     items.push(`<li>${renderInline(parts.join(' '))}</li>`)
   }
 
-  return { html: `<${tag}>${items.join('')}</${tag}>`, next: index }
+  // A step list broken up by a code block resumes where it left off, so the
+  // rendered numbers keep matching the ones the document was written with.
+  const startAttribute = tag === 'ol' && firstNumber !== 1
+    ? ` start="${firstNumber}"`
+    : ''
+
+  return { html: `<${tag}${startAttribute}>${items.join('')}</${tag}>`, next: index }
 }
 
 /** A pipe table is only a table when its second line is the divider row. */
@@ -196,31 +211,41 @@ function startsAnotherBlock(
 }
 
 /**
- * Renders inline markup. Code spans are split out first so the emphasis and
- * link rules never rewrite what a span is meant to show verbatim.
+ * Renders inline markup. Code spans are rendered first and stand in as
+ * placeholders while the rest runs, which keeps their content verbatim without
+ * cutting the text into pieces: emphasis that opens before a span and closes
+ * after it still has both of its markers in one string to match.
  */
 function renderInline(text: string): string {
-  return text
-    .split(/(`[^`]+`)/)
-    .map((segment) => (
-      segment.startsWith('`') && segment.endsWith('`') && segment.length > 1
-        ? `<code>${escapeHtml(segment.slice(1, -1))}</code>`
-        : renderInlineText(segment)
-    ))
-    .join('')
+  const codeSpans: string[] = []
+  const withPlaceholders = text.replace(/`([^`]+)`/g, (_match, code: string) => {
+    codeSpans.push(`<code>${escapeHtml(code)}</code>`)
+
+    return `${CODE_PLACEHOLDER}${codeSpans.length - 1}${CODE_PLACEHOLDER}`
+  })
+
+  return renderInlineText(withPlaceholders).replace(
+    new RegExp(`${CODE_PLACEHOLDER}(\\d+)${CODE_PLACEHOLDER}`, 'g'),
+    (_match, index: string) => codeSpans[Number(index)]
+  )
 }
 
 /** Renders the links and emphasis of one stretch of text outside code spans. */
 function renderInlineText(text: string): string {
   return escapeHtml(text)
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label: string, target: string) => (
-      ABSOLUTE_URL_PATTERN.test(target)
-        ? `<a href="${escapeAttribute(target)}" target="_blank" `
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label: string, target: string) => {
+      if (ABSOLUTE_URL_PATTERN.test(target)) {
+        return `<a href="${escapeAttribute(target)}" target="_blank" `
           + `rel="noreferrer noopener">${label}</a>`
-        // A repository-relative path has no page to open inside the extension,
-        // so it is shown as the path it is instead of a dead link.
+      }
+
+      // A link to a heading of this same document stays a link; a
+      // repository-relative path has no page to open inside the extension, so it
+      // is shown as the path it is instead of a dead link.
+      return target.startsWith('#')
+        ? `<a href="${escapeAttribute(target)}">${label}</a>`
         : `<code>${label}</code>`
-    ))
+    })
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
 }

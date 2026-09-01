@@ -76,7 +76,7 @@ const HELP_STYLES = `
   }
   h2 { font-size: 21px; padding-top: 0.5em; border-top: 1px solid var(--help-border); }
   h3 { font-size: 17px; }
-  h4 { font-size: 15px; color: var(--help-muted); }
+  h4 { font-size: 16px; font-weight: 650; }
 
   p, ul, ol, table, pre { margin: 0 0 1.1em; }
 

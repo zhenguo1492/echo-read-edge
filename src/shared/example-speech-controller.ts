@@ -31,6 +31,24 @@ const IDLE_STATE: ExampleSpeechState = {
 
 export const exampleSpeechState = signal<ExampleSpeechState>(IDLE_STATE)
 
+/**
+ * The hidden runtime plays one session at a time, so a document that owns a
+ * longer reading says here how to release it before an example claims the audio.
+ * The popup owns no page reading, which is why the default releases nothing.
+ */
+let releaseCompetingAudio: (() => Promise<unknown>) | null = null
+
+export function setExampleSpeechPreemption(
+  release: (() => Promise<unknown>) | null
+): void {
+  releaseCompetingAudio = release
+}
+
+/** Frees the single audio session for an example or a pronunciation. */
+export async function preemptCompetingAudio(): Promise<void> {
+  await releaseCompetingAudio?.()
+}
+
 let runtimeListener: ((message: unknown) => void) | null = null
 let operationVersion = 0
 let isStarting = false

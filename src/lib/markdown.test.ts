@@ -28,6 +28,15 @@ describe('renderMarkdown', () => {
     )
   })
 
+  it('renders emphasis that wraps an inline code span', () => {
+    expect(renderMarkdown('**`docker` is missing.** Install it.')).toBe(
+      '<p><strong><code>docker</code> is missing.</strong> Install it.</p>'
+    )
+    expect(renderMarkdown('*run `up` first*')).toBe(
+      '<p><em>run <code>up</code> first</em></p>'
+    )
+  })
+
   it('escapes HTML so README text can never inject markup', () => {
     expect(renderMarkdown('A <script>alert(1)</script> & more')).toBe(
       '<p>A &lt;script&gt;alert(1)&lt;/script&gt; &amp; more</p>'
@@ -41,6 +50,12 @@ describe('renderMarkdown', () => {
     )
     expect(renderMarkdown('See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).')).toBe(
       '<p>See <code>docs/ARCHITECTURE.md</code>.</p>'
+    )
+  })
+
+  it('keeps a link to another section of the same page', () => {
+    expect(renderMarkdown('See [GPU details](#gpu-details).')).toBe(
+      '<p>See <a href="#gpu-details">GPU details</a>.</p>'
     )
   })
 
@@ -73,6 +88,17 @@ describe('renderMarkdown', () => {
     expect(renderMarkdown(markdown)).toBe(
       '<ol><li>Open <code>chrome://extensions</code>.</li>'
       + '<li>Turn on Developer mode, top right.</li></ol>'
+    )
+  })
+
+  it('resumes the numbering when a list continues after another block', () => {
+    const markdown = [
+      '3. Start the server.',
+      '4. Wait for the download.'
+    ].join('\n')
+
+    expect(renderMarkdown(markdown)).toBe(
+      '<ol start="3"><li>Start the server.</li><li>Wait for the download.</li></ol>'
     )
   })
 
